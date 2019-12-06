@@ -13,7 +13,7 @@ The scraper is used to collect [Shopify app store dataset on Kaggle](https://www
 - `pricing_plans`
 - `reviews`
 
-Even though the published dataset is regularly updated, this repository allows keeping the local copy up to date independently of the released version.
+While the dataset published on Kaggle is regularly updated, this repository allows keeping the local copy up to date independently of the released version.
 
 Detailed dataset description can be found [here](https://www.kaggle.com/usernam3/shopify-app-store).
 
