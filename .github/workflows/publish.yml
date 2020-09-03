@@ -15,8 +15,8 @@ jobs:
         run: echo ::set-env name=RELEASE_VERSION::$(echo ${GITHUB_REF:10})
 
       - name: Publish image to GitHub Package Registry
-        uses: matootie/github-docker@v1.0.1
-        with:
-          username: usernam3
-          personalAccessToken: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
-          imageTag: ${{ env.RELEASE_VERSION }}
+        run: |
+          echo ${{ secrets.PERSONAL_ACCESS_TOKEN }} | docker login ghcr.io -u $GITHUB_ACTOR --password-stdin
+          docker pull ghcr.io/${{github.repository}}
+          docker build -t ghcr.io/${{github.repository}}:${{ env.RELEASE_VERSION }} -t ghcr.io/${{github.repository}}:latest . --cache-from ghcr.io/${{github.repository}}
+          docker push ghcr.io/${{github.repository}}
