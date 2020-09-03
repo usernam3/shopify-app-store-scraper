@@ -21,22 +21,22 @@ Detailed dataset description can be found [here](https://www.kaggle.com/usernam3
 
 ### Docker (recommended)
 
-[Authenticate to Github Packages](https://help.github.com/en/github/managing-packages-with-github-packages/configuring-docker-for-use-with-github-packages#authenticating-to-github-packages) (if not already)
+[Authenticate to GitHub Container Registry](https://docs.github.com/en/packages/getting-started-with-github-container-registry/migrating-to-github-container-registry-for-docker-images#authenticating-with-the-container-registry) (if not already)
 
 ```bash
-docker login docker.pkg.github.com -u USERNAME -p TOKEN
+docker login ghcr.io -u USERNAME -p TOKEN
 ```
 
 Pull container
 
 ```bash
-docker pull docker.pkg.github.com/usernam3/shopify-app-store-scraper/shopify-app-store-scraper:v1
+docker pull ghcr.io/usernam3/shopify-app-store-scraper
 ```
 
 Run container
 
 ```bash
-docker run -v `pwd`/output/:/app/output/ docker.pkg.github.com/usernam3/shopify-app-store-scraper/shopify-app-store-scraper:v1
+docker run -v `pwd`/output/:/app/output/ ghcr.io/usernam3/shopify-app-store-scraper
 ```
 
 After container finished the execution check the `output` folder (in current directory)
