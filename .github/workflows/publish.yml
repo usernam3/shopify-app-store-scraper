@@ -16,7 +16,7 @@ jobs:
 
       - name: Publish image to GitHub Package Registry
         run: |
-          echo ${{ secrets.CR_PAT }} | docker login ghcr.io -u $GITHUB_ACTOR --password-stdin
-          docker pull ghcr.io/usernam3/${{github.repository}}
-          docker build . --tag ghcr.io/usernam3/${{github.repository}}:${{ env.RELEASE_VERSION }} --cache-from ghcr.io/usernam3/${{github.repository}}
-          docker push ghcr.io/usernam3/${{github.repository}}:${{ env.RELEASE_VERSION }}
+          echo ${{ secrets.PERSONAL_ACCESS_TOKEN }} | docker login ghcr.io -u $GITHUB_ACTOR --password-stdin
+          # docker pull ghcr.io/${{github.repository}}/${{github.repository}}
+          docker build -t ghcr.io/${{github.repository}}/${{github.repository}}:${{ env.RELEASE_VERSION }} -t ghcr.io/${{github.repository}}/${{github.repository}}:latest . --cache-from ghcr.io/${{github.repository}}/${{github.repository}}
+          docker push ghcr.io/${{github.repository}}/${{github.repository}}
