@@ -15,7 +15,7 @@ jobs:
         run: echo ::set-env name=RELEASE_VERSION::$(echo ${GITHUB_REF:10})
 
       - name: Publish image to GitHub Package Registry
-        run: >
+        run: |
         # new login with new container registry url and PAT
         echo ${{ secrets.CR_PAT }} | docker login ghcr.io -u $GITHUB_ACTOR --password-stdin
         # new container registry urls added
