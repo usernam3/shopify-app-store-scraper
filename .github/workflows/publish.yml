@@ -16,9 +16,7 @@ jobs:
 
       - name: Publish image to GitHub Package Registry
         run: |
-        # new login with new container registry url and PAT
-        echo ${{ secrets.CR_PAT }} | docker login ghcr.io -u $GITHUB_ACTOR --password-stdin
-        # new container registry urls added
-        docker pull ghcr.io/usernam3/${{github.repository}}
-        docker build . --tag ghcr.io/usernam3/${{github.repository}}:${{ env.RELEASE_VERSION }} --cache-from ghcr.io/usernam3/${{github.repository}}
+        echo ${{ secrets.CR_PAT }} | docker login ghcr.io -u $GITHUB_ACTOR --password-stdin \
+        docker pull ghcr.io/usernam3/${{github.repository}} \
+        docker build . --tag ghcr.io/usernam3/${{github.repository}}:${{ env.RELEASE_VERSION }} --cache-from ghcr.io/usernam3/${{github.repository}} \
         docker push ghcr.io/usernam3/${{github.repository}}:${{ env.RELEASE_VERSION }}
