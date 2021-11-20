@@ -88,11 +88,11 @@ class WriteToCSV(object):
         return app_review
 
     def write_to_out(self, file_name, row):
-        with open('{}{}'.format(self.OUTPUT_DIR, file_name), 'a') as out:
+        with open('{}{}'.format(self.OUTPUT_DIR, file_name), 'a', encoding='utf-8') as out:
             csv_out = csv.writer(out)
             csv_out.writerow(dict(row).values())
 
     def write_header(self, file_name, row):
-        with open('{}{}'.format(self.OUTPUT_DIR, file_name), 'a') as out:
+        with open('{}{}'.format(self.OUTPUT_DIR, file_name), 'a', encoding='utf-8') as out:
             csv_out = csv.writer(out)
             csv_out.writerow(row)
