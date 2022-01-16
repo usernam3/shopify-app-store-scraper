@@ -101,18 +101,20 @@ class AppStoreSpider(scrapy.spiders.SitemapSpider):
         app_id = response.meta['app_id']
 
         for review in response.css('div.review-listing'):
-            author = (review.css('.review-listing-header>h3 ::text').extract_first() or '').strip()
-            rating = (review.css(
-                '.review-metadata>div:nth-child(1) .ui-star-rating::attr(data-rating)').extract_first() or '').strip()
-            posted_at = (review.css(
-                '.review-metadata>div:nth-child(2) .review-metadata__item-value ::text').extract_first() or '').strip()
+            author = review.css('.review-listing-header>h3 ::text').extract_first(default='').strip()
+            rating = review.css(
+                '.review-metadata>div:nth-child(1) .ui-star-rating::attr(data-rating)').extract_first(
+                default='').strip()
+            posted_at = review.css(
+                '.review-metadata>div:nth-child(2) .review-metadata__item-value ::text').extract_first(
+                default='').strip()
             body = BeautifulSoup(review.css('.review-content div').extract_first(), features='lxml').get_text().strip()
             helpful_count = review.css('.review-helpfulness .review-helpfulness__helpful-count ::text').extract_first()
             developer_reply = BeautifulSoup(
-                review.css('.review-reply .review-content div').extract_first() or '',
+                review.css('.review-reply .review-content div').extract_first(default=''),
                 features='lxml').get_text().strip()
-            developer_reply_posted_at = (review.css(
-                '.review-reply div.review-reply__header-item ::text').extract_first() or '').strip()
+            developer_reply_posted_at = review.css(
+                '.review-reply div.review-reply__header-item ::text').extract_first(default='').strip()
 
             yield AppReview(
                 app_id=app_id,
