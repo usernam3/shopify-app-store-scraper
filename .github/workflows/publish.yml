@@ -9,7 +9,7 @@ jobs:
     steps:
 
       - name: Copy repo files
-        uses: actions/checkout@master
+        uses: actions/checkout@v2
 
       - name: Set env
         run: echo ::set-env name=RELEASE_VERSION::$(echo ${GITHUB_REF:10})

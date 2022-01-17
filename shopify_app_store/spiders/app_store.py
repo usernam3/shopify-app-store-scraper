@@ -44,6 +44,13 @@ class AppStoreSpider(scrapy.spiders.SitemapSpider):
         return super().close(spider, reason)
 
     def parse_app(self, response):
+        """ Contract specifies the expected output
+
+        @url https://apps.shopify.com/calendify
+        @meta {"app_id": "9f0b03f2-e3b5-4c29-bc0e-0393852bcf43"}
+        @output_matches parse_app/calendify.json
+        """
+
         app_id = response.meta['app_id']
 
         url = response.request.url

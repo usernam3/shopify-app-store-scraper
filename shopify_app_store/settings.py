@@ -68,6 +68,13 @@ ITEM_PIPELINES = {
    'shopify_app_store.pipelines.WriteToCSV': 300,
 }
 
+# Configure spider contracts
+# See https://docs.scrapy.org/en/latest/topics/contracts.html
+SPIDER_CONTRACTS = {
+    'shopify_app_store.contracts.MetaContract': 10,
+    'shopify_app_store.contracts.OutputMatchesContract': 10,
+}
+
 # Enable and configure the AutoThrottle extension (disabled by default)
 # See https://docs.scrapy.org/en/latest/topics/autothrottle.html
 #AUTOTHROTTLE_ENABLED = True
