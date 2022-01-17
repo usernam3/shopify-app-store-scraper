@@ -1,7 +1,7 @@
 name: Check scrapy contracts
 on:
   schedule:
-    - cron:  '0 0 * * 1'
+    - cron:  '0 0 * * *'
 jobs:
   scrapy-check:
     runs-on: ubuntu-latest
