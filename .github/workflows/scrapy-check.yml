@@ -1,0 +1,16 @@
+name: Check scrapy contracts
+on:
+  schedule:
+    - cron:  '0 0 * * 1'
+jobs:
+  scrapy-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Copy repo files
+        uses: actions/checkout@v2
+
+      - name: Build docker image
+        run: docker build -t ${{github.repository}}:scrapy-check .
+
+      - name: Verify scrapy contracts
+        run: docker run ${{github.repository}}:scrapy-check scrapy check app_store
