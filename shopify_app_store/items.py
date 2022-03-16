@@ -27,6 +27,7 @@ class App(scrapy.Item):
     description = scrapy.Field()
     tagline = scrapy.Field()
     pricing_hint = scrapy.Field()
+    lastmod = scrapy.Field()
 
 
 class KeyBenefit(scrapy.Item):
