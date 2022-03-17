@@ -48,7 +48,7 @@ class WriteToCSV(object):
     def write_file_headers(self):
         self.write_header('apps.csv',
                           ['id', 'url', 'title', 'developer', 'developer_link', 'icon', 'rating', 'reviews_count',
-                           'description_raw', 'description', 'tagline', 'pricing_hint'])
+                           'description_raw', 'description', 'tagline', 'pricing_hint', 'lastmod'])
         self.write_header('reviews.csv',
                           ['app_id', 'author', 'rating', 'posted_at', 'body', 'helpful_count', 'developer_reply',
                            'developer_reply_posted_at'])

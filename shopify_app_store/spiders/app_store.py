@@ -1,15 +1,15 @@
 # -*- coding: utf-8 -*-
-import scrapy
 from scrapy import Request
 import re
 import uuid
 import hashlib
+from .lastmod_spider import LastmodSpider
 from ..items import App, KeyBenefit, PricingPlan, PricingPlanFeature, Category, AppCategory, AppReview
 from bs4 import BeautifulSoup
 import pandas as pd
 
 
-class AppStoreSpider(scrapy.spiders.SitemapSpider):
+class AppStoreSpider(LastmodSpider):
     REVIEWS_REGEX = r"(.*?)/reviews$"
     BASE_DOMAIN = "apps.shopify.com"
 
@@ -27,7 +27,7 @@ class AppStoreSpider(scrapy.spiders.SitemapSpider):
 
         response.meta['app_id'] = app_id
 
-        yield Request(app_url, callback=self.parse_app, meta={'app_id': app_id})
+        yield Request(app_url, callback=self.parse_app, meta={'app_id': app_id, 'lastmod': response.meta['lastmod']})
         for review in self.parse_reviews(response):
             yield review
 
@@ -47,7 +47,7 @@ class AppStoreSpider(scrapy.spiders.SitemapSpider):
         """ Contract specifies the expected output
 
         @url https://apps.shopify.com/calendify
-        @meta {"app_id": "9f0b03f2-e3b5-4c29-bc0e-0393852bcf43"}
+        @meta {"app_id": "9f0b03f2-e3b5-4c29-bc0e-0393852bcf43", "lastmod": "2022-03-17"}
         @output_matches parse_app/calendify.json
         """
 
@@ -101,7 +101,8 @@ class AppStoreSpider(scrapy.spiders.SitemapSpider):
             description_raw=description_raw,
             description=description,
             tagline=tagline,
-            pricing_hint=pricing_hint
+            pricing_hint=pricing_hint,
+            lastmod=response.meta['lastmod']
         )
 
     def parse_reviews(self, response):
