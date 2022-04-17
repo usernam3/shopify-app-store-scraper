@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 import scrapy
 from abc import ABCMeta
-from scrapy.utils.sitemap import Sitemap
-from urllib.parse import urljoin
+from scrapy.utils.sitemap import Sitemap, sitemap_urls_from_robots
 
 
 class LastmodSpider(scrapy.spiders.SitemapSpider, metaclass=ABCMeta):
 
     def _parse_sitemap(self, response):
+        # Implementation is duplicate of scrapy.spiders.SitemapSpider (with lastmod passed as a meta prop to callbacks)
         if response.url.endswith('/robots.txt'):
             for url in sitemap_urls_from_robots(response.text, base_url=response.url):
                 yield scrapy.Request(url, callback=self._parse_sitemap)
@@ -31,13 +31,3 @@ class LastmodSpider(scrapy.spiders.SitemapSpider, metaclass=ABCMeta):
                         if r.search(entry['loc']):
                             yield scrapy.Request(entry['loc'], callback=c, meta={'lastmod': entry['lastmod']})
                             break
-
-
-def sitemap_urls_from_robots(robots_text, base_url=None):
-    """Return an iterator over all sitemap urls contained in the given
-    robots.txt file
-    """
-    for line in robots_text.splitlines():
-        if line.lstrip().lower().startswith('sitemap:'):
-            url = line.split(':', 1)[1].strip()
-            yield urljoin(base_url, url)
