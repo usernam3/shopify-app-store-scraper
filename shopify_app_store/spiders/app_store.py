@@ -8,6 +8,8 @@ from ..items import App, KeyBenefit, PricingPlan, PricingPlanFeature, Category, 
 from bs4 import BeautifulSoup
 import pandas as pd
 
+from ..pipelines import WriteToCSV
+
 
 class AppStoreSpider(LastmodSpider):
     REVIEWS_REGEX = r"(.*?)/reviews$"
@@ -21,13 +23,33 @@ class AppStoreSpider(LastmodSpider):
         (re.compile(REVIEWS_REGEX), 'parse')
     ]
 
+    # Keep index of lastmod timestamps (value) by app URL (key)
+    lastmod_by_app = {}
+
+    def start_requests(self):
+        # Fetch existing apps from CSV
+        apps = pd.read_csv('{}{}{}'.format('./', WriteToCSV.OUTPUT_DIR, 'apps.csv'))
+        self.lastmod_by_app = dict(zip(apps.url, apps.lastmod))
+
+        for url in self.sitemap_urls:
+            yield Request(url, self._parse_sitemap)
+
     def parse(self, response):
         app_id = str(uuid.uuid4())
         app_url = re.compile(self.REVIEWS_REGEX).search(response.url).group(1)
+        app_persisted_lastmod = self.lastmod_by_app.get(app_url, None)
 
+        # Skip apps which were scraped and haven't changed since they were added to the list
+        if app_persisted_lastmod == response.meta['lastmod']:
+            self.logger.info('Skipping app as it hasn\'t changed since %s | URL: %s', app_persisted_lastmod, app_url)
+            yield None
+
+        # @TODO Take existing uuid if lastmod is present
         response.meta['app_id'] = app_id
+        self.lastmod_by_app[app_url] = response.meta['lastmod']
 
         yield Request(app_url, callback=self.parse_app, meta={'app_id': app_id, 'lastmod': response.meta['lastmod']})
+        # @TODO Make sure that reviews are also lastmod aware
         for review in self.parse_reviews(response):
             yield review
 
@@ -36,6 +58,7 @@ class AppStoreSpider(LastmodSpider):
         spider.logger.info('Spider closed: %s', spider.name)
         spider.logger.info('Preparing unique categories...')
 
+        # @TODO Make this part also safe for 'incremental' parsing
         # Normalize categories
         categories_df = pd.read_csv('output/categories.csv')
         categories_df.drop_duplicates(subset=['id', 'title']).to_csv('output/categories.csv', index=False)
