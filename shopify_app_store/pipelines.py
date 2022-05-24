@@ -6,6 +6,7 @@
 # See: https://docs.scrapy.org/en/latest/topics/item-pipeline.html
 
 import csv
+import os
 from .items import App, KeyBenefit, PricingPlan, PricingPlanFeature, Category, AppCategory, AppReview
 
 
@@ -46,17 +47,31 @@ class WriteToCSV(object):
         return item
 
     def write_file_headers(self):
-        self.write_header('apps.csv',
-                          ['id', 'url', 'title', 'developer', 'developer_link', 'icon', 'rating', 'reviews_count',
-                           'description_raw', 'description', 'tagline', 'pricing_hint', 'lastmod'])
-        self.write_header('reviews.csv',
-                          ['app_id', 'author', 'rating', 'posted_at', 'body', 'helpful_count', 'developer_reply',
-                           'developer_reply_posted_at'])
-        self.write_header('apps_categories.csv', ['app_id', 'category_id'])
-        self.write_header('categories.csv', ['id', 'title'])
-        self.write_header('pricing_plans.csv', ['id', 'app_id', 'title', 'price'])
-        self.write_header('pricing_plan_features.csv', ['app_id', 'pricing_plan_id', 'feature'])
-        self.write_header('key_benefits.csv', ['app_id', 'title', 'description'])
+        if self.is_empty('apps.csv'):
+            self.write_header('apps.csv',
+                              ['id', 'url', 'title', 'developer', 'developer_link', 'icon', 'rating', 'reviews_count',
+                               'description_raw', 'description', 'tagline', 'pricing_hint', 'lastmod'])
+
+        if self.is_empty('reviews.csv'):
+            self.write_header('reviews.csv',
+                              ['app_id', 'author', 'rating', 'posted_at', 'body', 'helpful_count', 'developer_reply',
+                               'developer_reply_posted_at'])
+
+        if self.is_empty('apps_categories.csv'):
+            self.write_header('apps_categories.csv', ['app_id', 'category_id'])
+
+        if self.is_empty('categories.csv'):
+            self.write_header('categories.csv', ['id', 'title'])
+
+        if self.is_empty('pricing_plans.csv'):
+            self.write_header('pricing_plans.csv', ['id', 'app_id', 'title', 'price'])
+
+        if self.is_empty('pricing_plan_features.csv'):
+            self.write_header('pricing_plan_features.csv', ['app_id', 'pricing_plan_id', 'feature'])
+
+        if self.is_empty('key_benefits.csv'):
+            self.write_header('key_benefits.csv', ['app_id', 'title', 'description'])
+
         return
 
     def store_app(self, app):
@@ -96,3 +111,7 @@ class WriteToCSV(object):
         with open('{}{}'.format(self.OUTPUT_DIR, file_name), 'a', encoding='utf-8') as out:
             csv_out = csv.writer(out)
             csv_out.writerow(row)
+
+    def is_empty(self, file_name):
+        file = '{}{}'.format(self.OUTPUT_DIR, file_name)
+        return os.stat(file).st_size == 0
