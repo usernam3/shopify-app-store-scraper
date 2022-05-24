@@ -1,0 +1,23 @@
+name: Publish Docker image for review
+on:
+  push:
+    branches:
+      - '**'
+      - '!master'
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Copy repo files
+        uses: actions/checkout@v2
+
+      - name: Set env
+        run: echo "RELEASE_VERSION=$(echo ${GITHUB_REF##*/})" >> $GITHUB_ENV
+
+      - name: Publish image to GitHub Container Registry
+        run: |
+          echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u $GITHUB_ACTOR --password-stdin
+          docker pull ghcr.io/${{github.repository}}
+          docker build -t ghcr.io/${{github.repository}}:${{ env.RELEASE_VERSION }} . --cache-from ghcr.io/${{github.repository}}
+          docker push ghcr.io/${{github.repository}}:${{ env.RELEASE_VERSION }}
