@@ -56,14 +56,19 @@ class AppStoreSpider(LastmodSpider):
     @staticmethod
     def close(spider, reason):
         spider.logger.info('Spider closed: %s', spider.name)
-        spider.logger.info('Preparing unique categories...')
 
-        # @TODO Make this part also safe for 'incremental' parsing
         # Normalize categories
+        spider.logger.info('Preparing unique categories...')
         categories_df = pd.read_csv('output/categories.csv')
         categories_df.drop_duplicates(subset=['id', 'title']).to_csv('output/categories.csv', index=False)
-
         spider.logger.info('Unique categories are there 👌')
+
+        # Normalize apps
+        spider.logger.info('Preparing unique apps...')
+        apps_df = pd.read_csv('output/apps.csv')
+        apps_df.drop_duplicates(subset=['id'], keep='last').to_csv('output/apps.csv', index=False)
+        spider.logger.info('Unique apps are there 💎')
+
         return super().close(spider, reason)
 
     def parse_app(self, response):
