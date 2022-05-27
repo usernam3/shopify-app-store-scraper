@@ -29,7 +29,8 @@ class AppStoreSpider(LastmodSpider):
     def start_requests(self):
         # Fetch existing apps from CSV
         apps = pd.read_csv('{}{}{}'.format('./', WriteToCSV.OUTPUT_DIR, 'apps.csv'))
-        self.lastmod_by_app = dict(zip(apps.url, apps.lastmod))
+        for _, app in apps.iterrows():
+            self.lastmod_by_app[app['url']] = {'url': app['url'], 'lastmod': app['lastmod'], 'id': app['id']}
 
         for url in self.sitemap_urls:
             yield Request(url, self._parse_sitemap)
@@ -37,16 +38,26 @@ class AppStoreSpider(LastmodSpider):
     def parse(self, response):
         app_id = str(uuid.uuid4())
         app_url = re.compile(self.REVIEWS_REGEX).search(response.url).group(1)
-        app_persisted_lastmod = self.lastmod_by_app.get(app_url, None)
+        persisted_app = self.lastmod_by_app.get(app_url, None)
 
         # Skip apps which were scraped and haven't changed since they were added to the list
-        if app_persisted_lastmod == response.meta['lastmod']:
-            self.logger.info('Skipping app as it hasn\'t changed since %s | URL: %s', app_persisted_lastmod, app_url)
+        if (persisted_app is not None) and (persisted_app.get('lastmod') == response.meta['lastmod']):
+            self.logger.info('Skipping app as it hasn\'t changed since %s | URL: %s', persisted_app.get('lastmod'),
+                             app_url)
             yield None
 
-        # @TODO Take existing uuid if lastmod is present
+        # Take id of the existing app
+        if (persisted_app is not None) and (persisted_app.get('lastmod') != response.meta['lastmod']):
+            self.logger.info('App\'s page got updated since %s, taking the existing id %s | URL: %s',
+                             persisted_app.get('lastmod'), persisted_app.get('id'), app_url)
+            app_id = persisted_app.get('id', app_id)
+
         response.meta['app_id'] = app_id
-        self.lastmod_by_app[app_url] = response.meta['lastmod']
+        self.lastmod_by_app[app_url] = {
+            'id': app_id,
+            'url': app_url,
+            'lastmod': response.meta['lastmod'],
+        }
 
         yield Request(app_url, callback=self.parse_app, meta={'app_id': app_id, 'lastmod': response.meta['lastmod']})
         # @TODO Make sure that reviews are also lastmod aware
