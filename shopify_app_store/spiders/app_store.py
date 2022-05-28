@@ -80,6 +80,13 @@ class AppStoreSpider(LastmodSpider):
         apps_df.drop_duplicates(subset=['id'], keep='last').to_csv('output/apps.csv', index=False)
         spider.logger.info('Unique apps are there 💎')
 
+        # Normalize reviews
+        spider.logger.info('Preparing unique reviews...')
+        apps_df = pd.read_csv('output/reviews.csv')
+        apps_df.drop_duplicates(subset=['app_id', 'author', 'posted_at'], keep='last').to_csv('output/reviews.csv',
+                                                                                              index=False)
+        spider.logger.info('Unique reviews are there 🔥')
+
         return super().close(spider, reason)
 
     def parse_app(self, response):
