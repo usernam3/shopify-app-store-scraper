@@ -113,5 +113,8 @@ class WriteToCSV(object):
             csv_out.writerow(row)
 
     def is_empty(self, file_name):
-        file = '{}{}'.format(self.OUTPUT_DIR, file_name)
-        return os.stat(file).st_size == 0
+        try:
+            file = '{}{}'.format(self.OUTPUT_DIR, file_name)
+            return os.stat(file).st_size == 0
+        except FileNotFoundError:
+            return True
