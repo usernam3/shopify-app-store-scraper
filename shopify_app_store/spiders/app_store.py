@@ -40,17 +40,17 @@ class AppStoreSpider(LastmodSpider):
         app_url = re.compile(self.REVIEWS_REGEX).search(response.url).group(1)
         persisted_app = self.processed_apps.get(app_url, None)
 
-        # Skip apps which were scraped and haven't changed since they were added to the list
-        if (persisted_app is not None) and (persisted_app.get('lastmod') == response.meta['lastmod']):
-            self.logger.info('Skipping app as it hasn\'t changed since %s | URL: %s', persisted_app.get('lastmod'),
-                             app_url)
-            yield None
-
-        # Take id of the existing app
-        if (persisted_app is not None) and (persisted_app.get('lastmod') != response.meta['lastmod']):
-            self.logger.info('App\'s page got updated since %s, taking the existing id %s | URL: %s',
-                             persisted_app.get('lastmod'), persisted_app.get('id'), app_url)
-            app_id = persisted_app.get('id', app_id)
+        if persisted_app is not None:
+            if persisted_app.get('lastmod') == response.meta['lastmod']:
+                self.logger.info('Skipping app as it hasn\'t changed since %s | URL: %s', persisted_app.get('lastmod'),
+                                 app_url)
+                # Skip apps which were scraped and haven't changed since they were added to the list
+                yield None
+            else:
+                self.logger.info('App\'s page got updated since %s, taking the existing id %s | URL: %s',
+                                 persisted_app.get('lastmod'), persisted_app.get('id'), app_url)
+                # Take id of the existing app
+                app_id = persisted_app.get('id', app_id)
 
         response.meta['app_id'] = app_id
         self.processed_apps[app_url] = {
