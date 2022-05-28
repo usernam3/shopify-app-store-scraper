@@ -23,14 +23,14 @@ class AppStoreSpider(LastmodSpider):
         (re.compile(REVIEWS_REGEX), 'parse')
     ]
 
-    # Keep index of lastmod timestamps (value) by app URL (key)
-    lastmod_by_app = {}
+    # Apps that were already scraped
+    processed_apps = {}
 
     def start_requests(self):
         # Fetch existing apps from CSV
         apps = pd.read_csv('{}{}{}'.format('./', WriteToCSV.OUTPUT_DIR, 'apps.csv'))
         for _, app in apps.iterrows():
-            self.lastmod_by_app[app['url']] = {'url': app['url'], 'lastmod': app['lastmod'], 'id': app['id']}
+            self.processed_apps[app['url']] = {'url': app['url'], 'lastmod': app['lastmod'], 'id': app['id']}
 
         for url in self.sitemap_urls:
             yield Request(url, self._parse_sitemap)
@@ -38,7 +38,7 @@ class AppStoreSpider(LastmodSpider):
     def parse(self, response):
         app_id = str(uuid.uuid4())
         app_url = re.compile(self.REVIEWS_REGEX).search(response.url).group(1)
-        persisted_app = self.lastmod_by_app.get(app_url, None)
+        persisted_app = self.processed_apps.get(app_url, None)
 
         # Skip apps which were scraped and haven't changed since they were added to the list
         if (persisted_app is not None) and (persisted_app.get('lastmod') == response.meta['lastmod']):
@@ -53,7 +53,7 @@ class AppStoreSpider(LastmodSpider):
             app_id = persisted_app.get('id', app_id)
 
         response.meta['app_id'] = app_id
-        self.lastmod_by_app[app_url] = {
+        self.processed_apps[app_url] = {
             'id': app_id,
             'url': app_url,
             'lastmod': response.meta['lastmod'],
