@@ -90,7 +90,7 @@ AUTOTHROTTLE_TARGET_CONCURRENCY = 1.0
 
 # Retry middleware settings
 # See https://docs.scrapy.org/en/latest/topics/downloader-middleware.html#module-scrapy.downloadermiddlewares.retry
-RETRY_TIMES = 10  # Maximum number of times to retry, in addition to the first download. (Default: 2)
+RETRY_TIMES = 100  # Maximum number of times to retry, in addition to the first download. (Default: 2)
 
 # Enable and configure HTTP caching (disabled by default)
 # See https://docs.scrapy.org/en/latest/topics/downloader-middleware.html#httpcache-middleware-settings
