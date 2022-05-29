@@ -25,12 +25,16 @@ class AppStoreSpider(LastmodSpider):
 
     # Apps that were already scraped
     processed_apps = {}
+    # Reviews that were already scraped
+    processed_reviews = {}
 
     def start_requests(self):
         # Fetch existing apps from CSV
         apps = pd.read_csv('{}{}{}'.format('./', WriteToCSV.OUTPUT_DIR, 'apps.csv'))
         for _, app in apps.iterrows():
             self.processed_apps[app['url']] = {'url': app['url'], 'lastmod': app['lastmod'], 'id': app['id']}
+
+        self.processed_reviews = pd.read_csv('{}{}{}'.format('./', WriteToCSV.OUTPUT_DIR, 'reviews.csv'))
 
         for url in self.sitemap_urls:
             yield Request(url, self._parse_sitemap)
@@ -60,8 +64,7 @@ class AppStoreSpider(LastmodSpider):
         }
 
         yield Request(app_url, callback=self.parse_app, meta={'app_id': app_id, 'lastmod': response.meta['lastmod']})
-        # @TODO Make sure that reviews are also lastmod aware
-        for review in self.parse_reviews(response):
+        for review in self.parse_reviews(response, skip_if_first_scraped=True):
             yield review
 
     @staticmethod
@@ -151,10 +154,10 @@ class AppStoreSpider(LastmodSpider):
             lastmod=response.meta['lastmod']
         )
 
-    def parse_reviews(self, response):
+    def parse_reviews(self, response, skip_if_first_scraped=False):
         app_id = response.meta['app_id']
 
-        for review in response.css('div.review-listing'):
+        for idx, review in enumerate(response.css('div.review-listing')):
             author = review.css('.review-listing-header>h3 ::text').extract_first(default='').strip()
             rating = review.css(
                 '.review-metadata>div:nth-child(1) .ui-star-rating::attr(data-rating)').extract_first(
@@ -169,6 +172,22 @@ class AppStoreSpider(LastmodSpider):
                 features='lxml').get_text().strip()
             developer_reply_posted_at = review.css(
                 '.review-reply div.review-reply__header-item ::text').extract_first(default='').strip()
+
+            # Stop scraping if last review was already scraped (means that there are no new reviews for this app)
+            if skip_if_first_scraped and idx == 0:
+                existing_review = self.processed_reviews.loc[
+                    (self.processed_reviews['app_id'] == app_id) &
+                    (self.processed_reviews['author'] == author) &
+                    (self.processed_reviews['rating'] == int(rating)) &
+                    (self.processed_reviews['posted_at'] == posted_at) &
+                    (self.processed_reviews['body'] == body)
+                    ]
+                import pdb;
+                pdb.set_trace()
+                if not existing_review.empty:
+                    self.logger.info("The last review of app was already scrapped, skipping the rest | App id : %s",
+                                     app_id)
+                    return None
 
             yield AppReview(
                 app_id=app_id,
