@@ -181,8 +181,7 @@ class AppStoreSpider(LastmodSpider):
                     (self.processed_reviews['posted_at'] == posted_at) &
                     (self.processed_reviews['body'] == body)
                     ]
-                import pdb;
-                pdb.set_trace()
+
                 if not existing_review.empty:
                     self.logger.info("The last review of app was already scrapped, skipping the rest | App id : %s",
                                      app_id)
