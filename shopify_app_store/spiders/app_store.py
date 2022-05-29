@@ -162,8 +162,7 @@ class AppStoreSpider(LastmodSpider):
             rating = review.css(
                 '.review-metadata>div:nth-child(1) .ui-star-rating::attr(data-rating)').extract_first(
                 default='').strip()
-            posted_at = review.css(
-                '.review-metadata>div:nth-child(2) .review-metadata__item-value ::text').extract_first(
+            posted_at = review.css('.review-metadata .review-metadata__item-label ::text').extract_first(
                 default='').strip()
             body = BeautifulSoup(review.css('.review-content div').extract_first(), features='lxml').get_text().strip()
             helpful_count = review.css('.review-helpfulness .review-helpfulness__helpful-count ::text').extract_first()
