@@ -49,7 +49,7 @@ class AppStoreSpider(LastmodSpider):
                 self.logger.info('Skipping app as it hasn\'t changed since %s | URL: %s', persisted_app.get('lastmod'),
                                  app_url)
                 # Skip apps which were scraped and haven't changed since they were added to the list
-                yield None
+                return None
             else:
                 self.logger.info('App\'s page got updated since %s, taking the existing id %s | URL: %s',
                                  persisted_app.get('lastmod'), persisted_app.get('id'), app_url)
