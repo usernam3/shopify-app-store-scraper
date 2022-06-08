@@ -8,9 +8,10 @@ from ..items import App, KeyBenefit, PricingPlan, PricingPlanFeature, Category, 
 from bs4 import BeautifulSoup
 import pandas as pd
 
+from ..pipelines import WriteToCSV
+
 
 class AppStoreSpider(LastmodSpider):
-    REVIEWS_REGEX = r"(.*?)/reviews$"
     BASE_DOMAIN = "apps.shopify.com"
 
     name = 'app_store'
@@ -18,29 +19,71 @@ class AppStoreSpider(LastmodSpider):
     allowed_domains = ['apps.shopify.com']
     sitemap_urls = ['https://apps.shopify.com/sitemap.xml']
     sitemap_rules = [
-        (re.compile(REVIEWS_REGEX), 'parse')
+        (re.compile(LastmodSpider.REVIEWS_REGEX), 'parse')
     ]
+
+    # Apps that were already scraped
+    processed_apps = {}
+    # Reviews that were already scraped
+    processed_reviews = {}
+
+    def start_requests(self):
+        # Fetch existing apps from CSV
+        apps = pd.read_csv('{}{}{}'.format('./', WriteToCSV.OUTPUT_DIR, 'apps.csv'))
+        for _, app in apps.iterrows():
+            self.processed_apps[app['url']] = {'url': app['url'], 'lastmod': app['lastmod'], 'id': app['id']}
+
+        self.processed_reviews = pd.read_csv('{}{}{}'.format('./', WriteToCSV.OUTPUT_DIR, 'reviews.csv'))
+
+        for url in self.sitemap_urls:
+            yield Request(url, self._parse_sitemap)
 
     def parse(self, response):
         app_id = str(uuid.uuid4())
-        app_url = re.compile(self.REVIEWS_REGEX).search(response.url).group(1)
+        app_url = re.compile(LastmodSpider.REVIEWS_REGEX).search(response.url).group(1)
+        persisted_app = self.processed_apps.get(app_url, None)
+
+        if persisted_app is not None:
+            if persisted_app.get('lastmod') != response.meta['lastmod']:
+                self.logger.info('App\'s page got updated since %s, taking the existing id %s | URL: %s',
+                                 persisted_app.get('lastmod'), persisted_app.get('id'), app_url)
+                # Take id of the existing app
+                app_id = persisted_app.get('id', app_id)
 
         response.meta['app_id'] = app_id
+        self.processed_apps[app_url] = {
+            'id': app_id,
+            'url': app_url,
+            'lastmod': response.meta['lastmod'],
+        }
 
         yield Request(app_url, callback=self.parse_app, meta={'app_id': app_id, 'lastmod': response.meta['lastmod']})
-        for review in self.parse_reviews(response):
+        for review in self.parse_reviews(response, skip_if_first_scraped=True):
             yield review
 
     @staticmethod
     def close(spider, reason):
         spider.logger.info('Spider closed: %s', spider.name)
-        spider.logger.info('Preparing unique categories...')
 
         # Normalize categories
+        spider.logger.info('Preparing unique categories...')
         categories_df = pd.read_csv('output/categories.csv')
         categories_df.drop_duplicates(subset=['id', 'title']).to_csv('output/categories.csv', index=False)
-
         spider.logger.info('Unique categories are there 👌')
+
+        # Normalize apps
+        spider.logger.info('Preparing unique apps...')
+        apps_df = pd.read_csv('output/apps.csv')
+        apps_df.drop_duplicates(subset=['id'], keep='last').to_csv('output/apps.csv', index=False)
+        spider.logger.info('Unique apps are there 💎')
+
+        # Normalize reviews
+        spider.logger.info('Preparing unique reviews...')
+        apps_df = pd.read_csv('output/reviews.csv')
+        apps_df.drop_duplicates(subset=['app_id', 'author', 'posted_at'], keep='last').to_csv('output/reviews.csv',
+                                                                                              index=False)
+        spider.logger.info('Unique reviews are there 🔥')
+
         return super().close(spider, reason)
 
     def parse_app(self, response):
@@ -105,16 +148,15 @@ class AppStoreSpider(LastmodSpider):
             lastmod=response.meta['lastmod']
         )
 
-    def parse_reviews(self, response):
+    def parse_reviews(self, response, skip_if_first_scraped=False):
         app_id = response.meta['app_id']
 
-        for review in response.css('div.review-listing'):
+        for idx, review in enumerate(response.css('div.review-listing')):
             author = review.css('.review-listing-header>h3 ::text').extract_first(default='').strip()
             rating = review.css(
                 '.review-metadata>div:nth-child(1) .ui-star-rating::attr(data-rating)').extract_first(
                 default='').strip()
-            posted_at = review.css(
-                '.review-metadata>div:nth-child(2) .review-metadata__item-value ::text').extract_first(
+            posted_at = review.css('.review-metadata .review-metadata__item-label ::text').extract_first(
                 default='').strip()
             body = BeautifulSoup(review.css('.review-content div').extract_first(), features='lxml').get_text().strip()
             helpful_count = review.css('.review-helpfulness .review-helpfulness__helpful-count ::text').extract_first()
@@ -123,6 +165,21 @@ class AppStoreSpider(LastmodSpider):
                 features='lxml').get_text().strip()
             developer_reply_posted_at = review.css(
                 '.review-reply div.review-reply__header-item ::text').extract_first(default='').strip()
+
+            # Stop scraping if last review was already scraped (means that there are no new reviews for this app)
+            if skip_if_first_scraped and idx == 0:
+                existing_review = self.processed_reviews.loc[
+                    (self.processed_reviews['app_id'] == app_id) &
+                    (self.processed_reviews['author'] == author) &
+                    (self.processed_reviews['rating'] == int(rating)) &
+                    (self.processed_reviews['posted_at'] == posted_at) &
+                    (self.processed_reviews['body'] == body)
+                    ]
+
+                if not existing_review.empty:
+                    self.logger.info("The last review of app was already scrapped, skipping the rest | App id : %s",
+                                     app_id)
+                    return None
 
             yield AppReview(
                 app_id=app_id,
