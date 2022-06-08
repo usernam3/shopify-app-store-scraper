@@ -12,7 +12,6 @@ from ..pipelines import WriteToCSV
 
 
 class AppStoreSpider(LastmodSpider):
-    REVIEWS_REGEX = r"(.*?)/reviews$"
     BASE_DOMAIN = "apps.shopify.com"
 
     name = 'app_store'
@@ -20,7 +19,7 @@ class AppStoreSpider(LastmodSpider):
     allowed_domains = ['apps.shopify.com']
     sitemap_urls = ['https://apps.shopify.com/sitemap.xml']
     sitemap_rules = [
-        (re.compile(REVIEWS_REGEX), 'parse')
+        (re.compile(LastmodSpider.REVIEWS_REGEX), 'parse')
     ]
 
     # Apps that were already scraped
@@ -41,16 +40,11 @@ class AppStoreSpider(LastmodSpider):
 
     def parse(self, response):
         app_id = str(uuid.uuid4())
-        app_url = re.compile(self.REVIEWS_REGEX).search(response.url).group(1)
+        app_url = re.compile(LastmodSpider.REVIEWS_REGEX).search(response.url).group(1)
         persisted_app = self.processed_apps.get(app_url, None)
 
         if persisted_app is not None:
-            if persisted_app.get('lastmod') == response.meta['lastmod']:
-                self.logger.info('Skipping app as it hasn\'t changed since %s | URL: %s', persisted_app.get('lastmod'),
-                                 app_url)
-                # Skip apps which were scraped and haven't changed since they were added to the list
-                return None
-            else:
+            if persisted_app.get('lastmod') != response.meta['lastmod']:
                 self.logger.info('App\'s page got updated since %s, taking the existing id %s | URL: %s',
                                  persisted_app.get('lastmod'), persisted_app.get('id'), app_url)
                 # Take id of the existing app
