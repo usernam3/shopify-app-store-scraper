@@ -102,7 +102,7 @@ class AppStoreSpider(LastmodSpider):
         developer = response.css('#adp-hero a[href^=\/partners]::text').extract_first().strip()
         developer_link = 'https://{}{}'.format(self.BASE_DOMAIN, response.css('#adp-hero a[href^=\/partners]::attr(href)').extract_first().strip())
         icon = response.css('#adp-hero img::attr(src)').extract_first()
-        rating = response.css('#adp-hero > div > div.tw-grow.tw-flex.tw-flex-col.tw-gap-xl > dl > div:nth-child(2) > dd > span.tw-text-fg-secondary ::text').extract_first()
+        rating = response.css('#adp-hero dd > span.tw-text-fg-secondary ::text').extract_first()
         reviews_count_raw = response.css('#reviews-link::text').extract_first(default='0 Reviews')
         reviews_count = int(''.join(re.findall(r'\d+', reviews_count_raw)))
         description_raw = response.css('#app-details').extract_first()
