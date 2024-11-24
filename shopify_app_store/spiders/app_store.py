@@ -57,7 +57,8 @@ class AppStoreSpider(LastmodSpider):
             'lastmod': response.meta['lastmod'],
         }
 
-        self.parse_app(response)
+        for scraped_item in self.parse_app(response):
+            yield scraped_item
 
         reviews_url = '{}{}'.format(app_url, '/reviews')
         yield Request(reviews_url, callback=self.parse_reviews, meta={'app_id': app_id, 'lastmod': response.meta['lastmod'], 'skip_if_first_scraped': True})
@@ -126,7 +127,7 @@ class AppStoreSpider(LastmodSpider):
                 yield PricingPlanFeature(pricing_plan_id=pricing_plan_id, app_id=app_id,
                                          feature=' '.join(feature.css('::text').extract()).strip())
 
-        for category_raw in response.css('#adp-details-section > div.tw-flex.tw-flex-col.tw-gap-lg.lg\:tw-gap-2xl > div:nth-child(2) > div > span a::text').extract():
+        for category_raw in response.css('#adp-details-section a[href^="https://apps.shopify.com/categories"]::text').extract():
             category = category_raw.strip()
             category_id = hashlib.md5(category.lower().encode()).hexdigest()
 
