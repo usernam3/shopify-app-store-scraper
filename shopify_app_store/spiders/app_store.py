@@ -19,7 +19,7 @@ class AppStoreSpider(LastmodSpider):
     allowed_domains = ['apps.shopify.com']
     sitemap_urls = ['https://apps.shopify.com/sitemap.xml']
     sitemap_rules = [
-        (re.compile(LastmodSpider.REVIEWS_REGEX), 'parse')
+        (re.compile(LastmodSpider.APP_URL_REGEX), 'parse')
     ]
 
     # Apps that were already scraped
@@ -40,7 +40,7 @@ class AppStoreSpider(LastmodSpider):
 
     def parse(self, response):
         app_id = str(uuid.uuid4())
-        app_url = re.compile(LastmodSpider.REVIEWS_REGEX).search(response.url).group(1)
+        app_url = response.url
         persisted_app = self.processed_apps.get(app_url, None)
 
         if persisted_app is not None:
@@ -57,9 +57,11 @@ class AppStoreSpider(LastmodSpider):
             'lastmod': response.meta['lastmod'],
         }
 
-        yield Request(app_url, callback=self.parse_app, meta={'app_id': app_id, 'lastmod': response.meta['lastmod']})
-        for review in self.parse_reviews(response, skip_if_first_scraped=True):
-            yield review
+        for scraped_item in self.parse_app(response):
+            yield scraped_item
+
+        reviews_url = '{}{}'.format(app_url, '/reviews')
+        yield Request(reviews_url, callback=self.parse_reviews, meta={'app_id': app_id, 'lastmod': response.meta['lastmod'], 'skip_if_first_scraped': True})
 
     @staticmethod
     def close(spider, reason):
@@ -97,36 +99,39 @@ class AppStoreSpider(LastmodSpider):
         app_id = response.meta['app_id']
 
         url = response.request.url
-        title = response.css('.vc-app-listing-hero__heading ::text').extract_first(default='').strip()
-        developer = response.css('.vc-app-listing-hero__by-line a::text').extract_first()
-        developer_link = response.css('.vc-app-listing-hero__by-line a::attr(href)').extract_first()
-        icon = response.css('.vc-app-listing-about-section__title img::attr(src)').extract_first()
-        rating = response.css('.ui-star-rating__rating ::text').extract_first()
-        reviews_count = response.css('.ui-review-count-summary a::text').extract_first(default='0 reviews')
-        description_raw = response.css('.vc-app-listing-about-section__description').extract_first()
-        description = ' '.join(response.css('.vc-app-listing-about-section__description ::text').extract()).strip()
-        tagline = ' '.join(response.css('.vc-app-listing-hero__tagline ::text').extract()).strip()
-        pricing_hint = response.css('.ui-app-pricing--format-detail ::text').extract_first(default='').strip()
+        title = response.css('#adp-hero h1 ::text').extract_first(default='').strip()
+        developer = response.css('#adp-hero a[href^=\/partners]::text').extract_first().strip()
+        developer_link = 'https://{}{}'.format(self.BASE_DOMAIN, response.css('#adp-hero a[href^=\/partners]::attr(href)').extract_first().strip())
+        icon = response.css('#adp-hero img::attr(src)').extract_first()
+        rating = response.css('#adp-hero dd > span.tw-text-fg-secondary ::text').extract_first()
+        reviews_count_raw = response.css('#reviews-link::text').extract_first(default='0 Reviews')
+        reviews_count = int(''.join(re.findall(r'\d+', reviews_count_raw)))
+        description_raw = response.css('#app-details').extract_first()
+        description = ' '.join(response.css('#app-details ::text').extract()).strip()
+        tagline = None
+        pricing_hint = response.css('#adp-hero > div > div.tw-grow.tw-flex.tw-flex-col.tw-gap-xl > dl > div:nth-child(1) > dd > div.tw-hidden.sm\:tw-block.tw-text-pretty ::text').extract_first().strip()
 
-        for benefit in response.css('.vc-app-listing-key-values__item'):
+        for benefit in response.css('#app-details>ul>li'):
             yield KeyBenefit(app_id=app_id,
-                             title=benefit.css('.vc-app-listing-key-values__item-title ::text').extract_first().strip(),
-                             description=benefit.css(
-                                 '.vc-app-listing-key-values__item-description ::text').extract_first().strip())
+                             title=None, # Backward-compatibility with format 1.0
+                             description=benefit.css('::text').extract_first().strip())
 
-        for pricing_plan in response.css('.ui-card.pricing-plan-card'):
+        for pricing_plan in response.css('.app-details-pricing-plan-card'):
             pricing_plan_id = str(uuid.uuid4())
             yield PricingPlan(id=pricing_plan_id,
                               app_id=app_id,
-                              title=pricing_plan.css('.pricing-plan-card__title-kicker ::text').extract_first(
-                                  default='').strip(),
-                              price=pricing_plan.css('h3 ::text').extract_first().strip())
+                              title=pricing_plan.css('[data-test-id="name"] ::text').extract_first(default='').strip(),
+                              price=pricing_plan.css('.app-details-pricing-format-group::attr(aria-label)').extract_first().strip())
 
-            for feature in pricing_plan.css('ul li.bullet'):
-                yield PricingPlanFeature(pricing_plan_id=pricing_plan_id, app_id=app_id,
-                                         feature=' '.join(feature.css('::text').extract()).strip())
+            for feature in pricing_plan.css('ul[data-test-id="features"] li::text').extract():
+                feature_text = feature.strip()
+                if not feature_text:
+                    continue
 
-        for category in response.css('.vc-app-listing-hero__taxonomy-links a::text').extract():
+                yield PricingPlanFeature(pricing_plan_id=pricing_plan_id, app_id=app_id, feature=feature_text)
+
+        for category_raw in response.css('#adp-details-section a[href^="https://apps.shopify.com/categories"]::text').extract():
+            category = category_raw.strip()
             category_id = hashlib.md5(category.lower().encode()).hexdigest()
 
             yield Category(id=category_id, title=category)
@@ -148,23 +153,21 @@ class AppStoreSpider(LastmodSpider):
             lastmod=response.meta['lastmod']
         )
 
-    def parse_reviews(self, response, skip_if_first_scraped=False):
+    def parse_reviews(self, response):
         app_id = response.meta['app_id']
+        skip_if_first_scraped = response.meta.get('skip_if_first_scraped', False)
 
-        for idx, review in enumerate(response.css('div.review-listing')):
-            author = review.css('.review-listing-header>h3 ::text').extract_first(default='').strip()
-            rating = review.css(
-                '.review-metadata>div:nth-child(1) .ui-star-rating::attr(data-rating)').extract_first(
-                default='').strip()
-            posted_at = review.css('.review-metadata .review-metadata__item-label ::text').extract_first(
-                default='').strip()
-            body = BeautifulSoup(review.css('.review-content div').extract_first(), features='lxml').get_text().strip()
+        for idx, review in enumerate(response.css('[data-merchant-review]')):
+            author = review.css('div.tw-text-heading-xs.tw-text-fg-primary.tw-overflow-hidden.tw-text-ellipsis.tw-whitespace-nowrap ::text').extract_first(default='').strip()
+            rating = review.css('[aria-label]::attr(aria-label)').extract_first(default='').strip().split()[0]
+            posted_at = review.css('div.tw-flex.tw-items-center.tw-justify-between.tw-mb-md > div.tw-text-body-xs.tw-text-fg-tertiary ::text').extract_first(default='').strip()
+            raw_body = BeautifulSoup(review.css('[data-truncate-review],[data-truncate-content-copy]').extract_first(), features='lxml')
+            for button in raw_body.find_all('button'):
+                button.decompose()
+            body = raw_body.get_text().strip()
             helpful_count = review.css('.review-helpfulness .review-helpfulness__helpful-count ::text').extract_first()
-            developer_reply = BeautifulSoup(
-                review.css('.review-reply .review-content div').extract_first(default=''),
-                features='lxml').get_text().strip()
-            developer_reply_posted_at = review.css(
-                '.review-reply div.review-reply__header-item ::text').extract_first(default='').strip()
+            developer_reply = BeautifulSoup(review.css('[data-reply-id]').extract_first(default=''), features='lxml').get_text().strip()
+            developer_reply_posted_at = review.css('[id^=review-reply-] .tw-text-fg-tertiary::text').extract_first(default='').strip().split('\n')[-1].strip()
 
             # Stop scraping if last review was already scraped (means that there are no new reviews for this app)
             if skip_if_first_scraped and idx == 0:
@@ -192,7 +195,7 @@ class AppStoreSpider(LastmodSpider):
                 developer_reply_posted_at=developer_reply_posted_at
             )
 
-        next_page_path = response.css('a.search-pagination__next-page-text::attr(href)').extract_first()
-        if next_page_path:
-            yield Request('https://{}{}'.format(self.BASE_DOMAIN, next_page_path), callback=self.parse_reviews,
+        next_page_url = response.css('[rel="next"]::attr(href)').extract_first()
+        if next_page_url:
+            yield Request(next_page_url, callback=self.parse_reviews,
                           meta={'app_id': response.meta['app_id']})

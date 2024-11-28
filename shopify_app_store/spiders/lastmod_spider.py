@@ -6,7 +6,7 @@ from scrapy.utils.sitemap import Sitemap, sitemap_urls_from_robots
 
 
 class LastmodSpider(scrapy.spiders.SitemapSpider, metaclass=ABCMeta):
-    REVIEWS_REGEX = r"(.*?)/reviews$"
+    APP_URL_REGEX = r"https://apps.shopify.com/[^/]+$"
     # Apps that were already scraped
     processed_apps = {}
 
@@ -37,7 +37,7 @@ class LastmodSpider(scrapy.spiders.SitemapSpider, metaclass=ABCMeta):
                 for entry in it:
                     for r, c in self._cbs:
                         if r.search(entry['loc']):
-                            app_url = re.compile(self.REVIEWS_REGEX).search(entry['loc']).group(1)
+                            app_url = entry['loc']
                             if self._is_loc_same_as_processed(app_url, entry['lastmod']):
                                 self.logger.info('Skipping app as it hasn\'t changed since %s | URL: %s',
                                                  entry['lastmod'],
