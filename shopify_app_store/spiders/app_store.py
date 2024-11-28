@@ -123,9 +123,12 @@ class AppStoreSpider(LastmodSpider):
                               title=pricing_plan.css('[data-test-id="name"] ::text').extract_first(default='').strip(),
                               price=pricing_plan.css('.app-details-pricing-format-group::attr(aria-label)').extract_first().strip())
 
-            for feature in pricing_plan.css('ul[data-test-id="features"] li'):
-                yield PricingPlanFeature(pricing_plan_id=pricing_plan_id, app_id=app_id,
-                                         feature=' '.join(feature.css('::text').extract()).strip())
+            for feature in pricing_plan.css('ul[data-test-id="features"] li::text').extract():
+                feature_text = feature.strip()
+                if not feature_text:
+                    continue
+
+                yield PricingPlanFeature(pricing_plan_id=pricing_plan_id, app_id=app_id, feature=feature_text)
 
         for category_raw in response.css('#adp-details-section a[href^="https://apps.shopify.com/categories"]::text').extract():
             category = category_raw.strip()
