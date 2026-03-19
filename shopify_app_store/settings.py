@@ -58,9 +58,13 @@ CONCURRENT_REQUESTS = 4
 
 # Enable or disable extensions
 # See https://docs.scrapy.org/en/latest/topics/extensions.html
-#EXTENSIONS = {
-#    'scrapy.extensions.telnet.TelnetConsole': None,
-#}
+EXTENSIONS = {
+    'shopify_app_store.rich_ui.RichDashboard': 100,
+}
+
+# Suppress default Scrapy logging (Rich UI handles display)
+LOG_LEVEL = 'WARNING'
+LOG_FORMAT = '%(message)s'
 
 # Configure item pipelines
 # See https://docs.scrapy.org/en/latest/topics/item-pipeline.html

@@ -28,27 +28,44 @@ class AppStoreSpider(LastmodSpider):
     processed_reviews = {}
 
     def start_requests(self):
-        # Fetch existing apps from CSV
-        apps = pd.read_csv('{}{}{}'.format('./', WriteToCSV.OUTPUT_DIR, 'apps.csv'))
-        for _, app in apps.iterrows():
-            self.processed_apps[app['url']] = {'url': app['url'], 'lastmod': app['lastmod'], 'id': app['id']}
+        # Fetch existing apps from CSV (deduplicate on load)
+        try:
+            apps = pd.read_csv('{}{}{}'.format('./', WriteToCSV.OUTPUT_DIR, 'apps.csv'))
+            apps = apps.drop_duplicates(subset=['id'], keep='last')
+            for _, app in apps.iterrows():
+                self.processed_apps[app['url']] = {'url': app['url'], 'lastmod': app['lastmod'], 'id': app['id']}
+            self.logger.info('Loaded %d existing apps from CSV for resume', len(self.processed_apps))
+        except (FileNotFoundError, pd.errors.EmptyDataError):
+            self.logger.info('No existing apps.csv found, starting fresh')
 
-        self.processed_reviews = pd.read_csv('{}{}{}'.format('./', WriteToCSV.OUTPUT_DIR, 'reviews.csv'))
+        try:
+            self.processed_reviews = pd.read_csv('{}{}{}'.format('./', WriteToCSV.OUTPUT_DIR, 'reviews.csv'))
+            self.processed_reviews = self.processed_reviews.drop_duplicates(
+                subset=['app_id', 'author', 'posted_at'], keep='last'
+            )
+            self.logger.info('Loaded %d existing reviews from CSV for resume', len(self.processed_reviews))
+        except (FileNotFoundError, pd.errors.EmptyDataError):
+            self.processed_reviews = pd.DataFrame(columns=['app_id', 'author', 'rating', 'posted_at', 'body'])
+            self.logger.info('No existing reviews.csv found, starting fresh')
 
         for url in self.sitemap_urls:
             yield Request(url, self._parse_sitemap)
 
     def parse(self, response):
-        app_id = str(uuid.uuid4())
         app_url = response.url
         persisted_app = self.processed_apps.get(app_url, None)
 
         if persisted_app is not None:
+            # Always reuse the existing ID for this app URL
+            app_id = persisted_app.get('id', str(uuid.uuid4()))
             if persisted_app.get('lastmod') != response.meta['lastmod']:
-                self.logger.info('App\'s page got updated since %s, taking the existing id %s | URL: %s',
-                                 persisted_app.get('lastmod'), persisted_app.get('id'), app_url)
-                # Take id of the existing app
-                app_id = persisted_app.get('id', app_id)
+                self.logger.info('App\'s page got updated since %s, reusing id %s | URL: %s',
+                                 persisted_app.get('lastmod'), app_id, app_url)
+            else:
+                self.logger.info('Re-scraping app with same lastmod, reusing id %s | URL: %s',
+                                 app_id, app_url)
+        else:
+            app_id = str(uuid.uuid4())
 
         response.meta['app_id'] = app_id
         self.processed_apps[app_url] = {
@@ -59,6 +76,10 @@ class AppStoreSpider(LastmodSpider):
 
         for scraped_item in self.parse_app(response):
             yield scraped_item
+
+        # Notify Rich UI dashboard
+        if hasattr(self, '_rich_ui'):
+            self._rich_ui.notify_scraped(app_url)
 
         reviews_url = '{}{}'.format(app_url, '/reviews')
         yield Request(reviews_url, callback=self.parse_reviews, meta={'app_id': app_id, 'lastmod': response.meta['lastmod'], 'skip_if_first_scraped': True})
@@ -100,8 +121,8 @@ class AppStoreSpider(LastmodSpider):
 
         url = response.request.url
         title = response.css('#adp-hero h1 ::text').extract_first(default='').strip()
-        developer = response.css('#adp-hero a[href^=\/partners]::text').extract_first().strip()
-        developer_link = 'https://{}{}'.format(self.BASE_DOMAIN, response.css('#adp-hero a[href^=\/partners]::attr(href)').extract_first().strip())
+        developer = response.css('#adp-hero a[href*="/partners/"]::text').extract_first().strip()
+        developer_link = 'https://{}{}'.format(self.BASE_DOMAIN, response.css('#adp-hero a[href*="/partners/"]::attr(href)').extract_first().strip())
         icon = response.css('#adp-hero img::attr(src)').extract_first()
         rating = response.css('#adp-hero dd > span.tw-text-fg-secondary ::text').extract_first()
         reviews_count_raw = response.css('#reviews-link::text').extract_first(default='0 Reviews')
@@ -109,7 +130,7 @@ class AppStoreSpider(LastmodSpider):
         description_raw = response.css('#app-details').extract_first()
         description = ' '.join(response.css('#app-details ::text').extract()).strip()
         tagline = None
-        pricing_hint = response.css('#adp-hero > div > div.tw-grow.tw-flex.tw-flex-col.tw-gap-xl > dl > div:nth-child(1) > dd > div.tw-hidden.sm\:tw-block.tw-text-pretty ::text').extract_first().strip()
+        pricing_hint = response.css(r'#adp-hero > div > div.tw-grow.tw-flex.tw-flex-col.tw-gap-xl > dl > div:nth-child(1) > dd > div.tw-hidden.sm\:tw-block.tw-text-pretty ::text').extract_first().strip()
 
         for benefit in response.css('#app-details>ul>li'):
             yield KeyBenefit(app_id=app_id,

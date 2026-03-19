@@ -24,25 +24,18 @@ class WriteToCSV(object):
     def process_item(self, item, spider):
         if isinstance(item, App):
             self.store_app(item)
-            return None
-        if isinstance(item, PricingPlan):
+        elif isinstance(item, PricingPlan):
             self.store_pricing_plan(item)
-            return None
-        if isinstance(item, PricingPlanFeature):
+        elif isinstance(item, PricingPlanFeature):
             self.store_pricing_plan_feature(item)
-            return None
-        if isinstance(item, Category):
+        elif isinstance(item, Category):
             self.store_category(item)
-            return None
-        if isinstance(item, AppCategory):
+        elif isinstance(item, AppCategory):
             self.store_app_category(item)
-            return None
-        if isinstance(item, KeyBenefit):
+        elif isinstance(item, KeyBenefit):
             self.store_key_benefit(item)
-            return None
-        if isinstance(item, AppReview):
+        elif isinstance(item, AppReview):
             self.store_app_review(item)
-            return None
 
         return item
 
